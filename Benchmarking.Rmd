@@ -31,8 +31,7 @@ Comparable:
 * nChr
 * segSites
 
-We should set the Ne of runMacs2 to a reasonable value. 10000 is a common default and a good estimator for the Danish population historically.
-genLen has been set to default.
+We should set the Ne of runMacs2 to a reasonable value. 10000 is a common default.genLen has been set to default.
 
 ## Parameters 
 TO MODIFY WITH BIGGER SIZES IN ACTUAL BENCHMARKING 
@@ -189,4 +188,258 @@ comparison_by_param <- results_df %>%
 
 comparison_by_param
 ```
+
+
+# WEEK9:  New version with different threads and different Ne
+## This is my version on my laptop. small example, no cluster
+
+```{r}
+df <- readRDS("benchmarking_haplo/script_threads.rds")
+df <- df %>%
+  mutate(
+    nThreads = as.character(nThreads),
+    nChr = as.character(nChr),
+    nInd = as.character(nInd),
+    Ne = as.character(Ne)
+  )
+
+df$nChr <- factor(df$nChr, levels = c("1", "5", "8", "10"))
+df$nThreads <- factor(df$nThreads, levels = c("1", "5", "8", "10"))
+df
+```
+
+Plotting to see what happend when more core than possible.
+
+Changing the parameters to strings.
+
+
+
+```{r}
+library(ggplot2)
+ggplot(df, aes(x = nThreads, y = time_sec_runMacs2)) +
+  geom_point(aes(colour = nChr)) +
+  labs(title = "Time per Sec Macs2 by Number of Threads",
+       x = "Number of Threads",
+       y = "Time per Sec (Macs2)") +
+  theme_minimal()+
+  geom_smooth(method = "loess", se = FALSE, color = "blue")
+```
+# ACTUAL RESULTS THREAD ANALYSIS FROM CLUSTER
+
+**RESULTS BASED ON TIME PER SECOND**
+```{r}
+library(tidyverse)
+df <- readRDS("benchmarking_haplo/combined_results_old.rds")
+df <- df %>%
+  mutate(
+    nThreads = as.character(nThreads),
+    nChr = as.character(nChr),
+    nInd = as.character(nInd),
+    Ne = as.character(Ne)
+  )
+df$nThreads <- factor(df$nThreads, levels = c("2", "4", "8", "16", "32"))
+ggplot(df, aes(x = nThreads, y = time_sec_runMacs2)) +
+  geom_point(aes(colour = nChr)) +
+  labs(title = "Time per second - runMacs2 - by Number of Threads",
+       x = "Number of Threads",
+       y = "Time per Sec (Macs2)") +
+  theme_minimal()+
+  geom_smooth(method = "loess", se = FALSE, color = "blue")
+```
+
+**SPEEDUP ANALYSIS COMPARED TO QUICKHAPLO**
+```{r}
+ggplot(df, aes(x = nThreads, y = speedup_Macs2)) +
+  geom_point(aes(colour = nChr)) +
+  labs(title = "Speedup of runMacs2 vs quickHaplo by Number of Threads",
+       x = "Number of Threads",
+       y = "Speedup (Macs2 vs quickHaplo)") +
+  theme_minimal()+
+  geom_smooth(method = "loess", se = FALSE, color = "blue")
+```
+
+**PRINT DATA**
+```{r}
+df
+```
+
+It looks like increasing the nomber of threads doesn't improve the speed of the runMacs2 after 16 threads,it even gets worse. This could be due to overhead from managing too many threads or contention for resources. The optimal number of threads seems to be around 16 for this particular setup.
+
+My theory: number of threads ideally should be closer to the number of chromosomes
+
+**RESULTS NEW THEORY**
+```{r}
+library(tidyverse)
+df <- readRDS("benchmarking_haplo/combined_results.rds") %>%
+  mutate(
+    nThreads = as.character(nThreads),
+    nChr = as.character(nChr),
+    nInd = as.character(nInd),
+    Ne = as.character(Ne)
+  ) 
+
+df$nThreads <- factor(df$nThreads, levels = c("8","10", "16","23", "32"))
+
+ggplot(df, aes(x = nThreads, y = time_sec_runMacs2)) +
+  geom_point(aes(colour = nChr)) +
+  labs(title = "Time per second - runMacs2 - by Number of Threads",
+       x = "Number of Threads",
+       y = "Time per Sec (Macs2)") +
+  theme_minimal() +
+  # Adding straight horizontal line at the height of each point at 8 threads
+  geom_hline(data = df %>% filter(nThreads == "8"), aes(yintercept = time_sec_runMacs2), linetype = "dashed", color = "red")
+```
+Dfferences are so small that it's hard to see any difference.
+Filtering by chromosomes.
+
+```{r}
+list_chr <- unique(df$nChr)
+for (chr in list_chr) {
+  df_chr <- df %>% filter(nChr == chr)
+  p <- ggplot(df_chr, aes(x = nThreads, y = time_sec_runMacs2, colour = nThreads))+
+    geom_point() +
+    labs(title = paste("Time per second - runMacs2 - by Number of Threads for", chr, "chromosomes"),
+         x = "Number of Threads",
+         y = "Time per Sec (Macs2)") +
+    theme_minimal()
+  print(p)
+}
+
+```
+```{r}
+# showing the speedup for each chromosome separately
+for (chr in list_chr) {
+  df_chr <- df %>% filter(nChr == chr)
+  p <- ggplot(df_chr, aes(x = nThreads, y = speedup_Macs2, colour = nThreads))+
+    geom_point() +
+    labs(title = paste("Speedup of runMacs2 vs quickHaplo by Number of Threads for", chr, "chromosomes"),
+         x = "Number of Threads",
+         y = "Speedup (Macs2 vs quickHaplo)") +
+    theme_minimal()
+  print(p)
+}
+```
+**SHOWING SPEEDUP WITH THREADS AND NCHR**
+```{r}
+p <- ggplot(df, aes(x = nThreads, y = speedup_Macs2, colour = nChr))+
+  geom_point() +
+  labs(title = "Speedup of runMacs2 vs quickHaplo by Number of Threads and Chromosomes",
+       x = "Number of Threads",
+       y = "Speedup (Macs2 vs quickHaplo)") +
+  theme_minimal()+
+  # add horizontal line at 16 threads
+  geom_hline(data = df %>% filter(nThreads == "16" & nChr=="10"), aes(yintercept = speedup_Macs2), linetype = "dashed", color = "red")
+p
+```
+
+
+
+
+
+```{r}
+# plot time per sec of quickhaplo
+p <- ggplot(df, aes(x = nThreads, y = time_sec_quickHaplo, colour = nChr))+
+  geom_point() +
+  labs(title = "Time per second - quickHaplo - by Number of Threads",
+       x = "Number of Threads",
+       y = "Time per Sec (quickHaplo)") +
+  theme_minimal()+
+  # add horizontal line at 16 threads
+  geom_hline(data = df %>% filter(nThreads == "16"), aes(yintercept = time_sec_quickHaplo), linetype = "dashed", color = "red")
+print(p)
+```
+**CHECKING INCREASE IN TIME FOR RUNMACS2 AND QUICKHAPLO JUST BASED ON THE NUMBER OF CHROMOSOMES**
+```{r}
+library(tidyverse)
+df <- readRDS("benchmarking_haplo/combined_results.rds") %>%
+  mutate(
+    nThreads = as.character(nThreads),
+    nInd = as.character(nInd),
+    Ne = as.character(Ne)
+  ) 
+
+df$nThreads <- factor(df$nThreads, levels = c("8","10", "16","23", "32"))
+
+p <- ggplot(df, aes(x = nChr, y = time_sec_runMacs2, colour = nThreads)) +
+  geom_point() +
+  labs(title = "Time per second - runMacs2 - by Number of Chromosomes",
+       x = "Number of Chromosomes",
+       y = "Time per Sec (Macs2)") +
+  theme_minimal() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  # change scale x axis to fit the number of chromosomes
+  scale_x_continuous(
+    breaks = seq(8, 24, by = 4),
+  )
+  
+p
+```
+
+
+# Cluster results for Ne
+
+```{r}
+df <- readRDS("benchmarking_haplo/bench_Ne.rds")
+df <- df %>%
+  mutate(
+    nThreads = as.character(nThreads),
+    nChr = as.character(nChr),
+    nInd = as.character(nInd)
+  )
+
+p <- ggplot(df, aes(x = Ne, y = time_sec_runMacs2)) +
+  geom_point(aes(colour = nChr)) +
+  labs(title = "Time per second - runMacs2 - by Ne",
+       x = "Ne",
+       y = "Time per Sec (Macs2)") +
+  # log smoothing method
+  geom_smooth(method = "loess", se = FALSE, color = "blue") +
+
+  theme_minimal()
+p
+
+```
+```{r}
+# coefficient
+model <- lm(time_sec_runMacs2 ~ Ne, data = df)
+model$coefficients
+```
+
+**LOG SCAL FOR Ne**
+
+```{r}
+df_log <- df %>%
+  mutate(log_Ne = log(Ne))
+p <- ggplot(df_log, aes(x = log_Ne, y = time_sec_runMacs2)) +
+  geom_point(aes(colour = nChr)) +
+  labs(title = "Time per sec - runMacs2 - by log_Ne",
+       x = "log_Ne", y = " Time per Sec (Macs2)") +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  theme_minimal() 
+p
+```
+
+
+```{r}
+# speedup comparison for Ne
+
+p <- ggplot(df, aes(x = Ne, y = speedup_Macs2))+
+  geom_point(aes(colour = nChr)) +
+  labs(title = "Speedup of runMacs2 vs quickHaplo by Ne",
+       x = "Ne",
+       y = "Speedup (Macs2 vs quickHaplo)") +
+  theme_minimal()+
+  # print on the slope of the speedup through geom_smooth
+  geom_smooth(method = "lm", se = FALSE, color = "blue")
+
+  
+p
+```
+```{r}
+# get slope
+
+model <- lm(speedup_Macs2 ~ Ne, data = df)
+model$coefficients
+```
+
 
