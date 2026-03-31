@@ -1,9 +1,0 @@
----
-title: "learning_alphasimR"
-output: html_document
----
-
-```{r}
-library(AlphaSimR)
-```
-
