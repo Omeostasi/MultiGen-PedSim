@@ -9,18 +9,30 @@
 ##  - ASD liability built from standardized predictors on child scale + residual
 ## ------------------------------------------------------------
 
+
+## --------
+##  THIS SECOND VERSION ALLOWS DIFFERENT VALUES AT DIFFERENT GENERATIONS FOR lambdaKids AND p_new_partner.
+##  A NUMERIC VECTOR IS GOING TO BE ECONDED UNDER THESE VARIABLES.
+## --------
+
+
+
+
+
+
+
 library(AlphaSimR)
 library(MASS)
 library(Matrix)
 
 # Adding wrapper function to generate founders
-source("src_1/founderHaplotypesGenerator.R")
+source("src_2/founderHaplotypesGenerator.R")
 
 # helpers: make_pd_corr, calib_alpha, alloc_kids_blocks
-source("src_1/helpers_juan.R")
+source("src_2/helpers_juan.R")
 
 # Function to generate pop pedigree
-source("src_1/pop_generation.R")
+source("src_2/pop_generation.R")
 
 set.seed(1)
 options(stringsAsFactors = FALSE)
@@ -43,7 +55,7 @@ nFounders_final <- 1*10^6 # final number of founders used as SimParam
 # nParents   <- 2000      # size of adult generation # this is not used
 # nMothers   <- 700 # this is not used
 mothers_fraction <- 0.75 # fraction of female pop that become mothers
-lambdaKids <- 1.6       # mean kids per mother among mothers with >=1 child
+lambdaKids <- c(2.3, 2.0, 1.6)      # mean kids per mother among mothers with >=1 child
 nGenerations_pop <- 3 # number generation that we have data for
 overlapping_fraction <- 0.00 #  % of the older pop could still have children during the current pop
 
@@ -72,7 +84,7 @@ nCausalPerChr <- 50      # causal segregating sites per chromosome
 
 ## Union / partnership structure (divorce/remarriage)
 maxPartners_mom <- 3     # max distinct fathers per mother
-p_new_partner   <- 0.25  # higher => more mothers with multiple partners
+p_new_partner   <- c(0.05, 0.10, 0.25)  # higher => more mothers with multiple partners
 mean_unions_dad <- 1.3   # higher => more paternal half-sibs + higher dad reuse
 
 ## Pregnancy CMC model
@@ -82,7 +94,10 @@ delta_CMC <- 1.0         # additional shift if mother is CMC case (binary)
 ## Genotyped fraction for export
 propGenotyped <- 0.30
 
-
+## Checking parameters
+if (length(lambdaKids) != nGenerations_pop || length(p_new_partner) != nGenerations_pop) {
+  stop("there are more generations than values for lambdaKids or p_new_partner")
+}
 
 
 
@@ -138,12 +153,13 @@ children <- pop[children_ids_all] # children pop subset (essentially missing jus
 cat("Pulling segSites, Genotypes and choosing causal variants from segSites \n")
 
 ## Observed chip (for export / downstream "array data")
-Gchip_mom <- pullSnpGeno(mothers,  snpChip = 1, simParam = SP)
-Gchip_kid <- pullSnpGeno(children, snpChip = 1, simParam = SP)
+Gchip_mom <- pullSnpGeno(mothers,  snpChip = 1, simParam = SP) # Adding "asRaw would reduce the space, but it wouldn't work for further operations in step 4
+Gchip_kid <- pullSnpGeno(children, snpChip = 1, simParam = SP) # Adding "asRaw would reduce the space, but it wouldn't work for further operations in step 4
 
 ## Segregating sites (for causal architecture)
-Gseg_mom <- pullSegSiteGeno(mothers,  simParam = SP)
-Gseg_kid <- pullSegSiteGeno(children, simParam = SP)
+Gseg_mom <- pullSegSiteGeno(mothers,  simParam = SP) # Adding "asRaw would reduce the space, but it wouldn't work for further operations in step 4
+Gseg_kid <- pullSegSiteGeno(children, simParam = SP) # Adding "asRaw would reduce the space, but it wouldn't work for further operations in step 4
+
 
 ## Choose causal variants from segregating sites
 nCausal <- nChr * nCausalPerChr

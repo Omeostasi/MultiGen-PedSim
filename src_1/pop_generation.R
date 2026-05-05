@@ -1,6 +1,6 @@
 library(AlphaSimR)
 
-source("src_2/helpers_juan.R")
+source("src_1/helpers_juan.R")
 
 ###
 ### THIS IS FUNCTION IS NOT MEANT TO BE USED DIRECTLY
@@ -49,7 +49,7 @@ pop_generation_from_founders <- function(pop_founder_haplo, mothers_fraction, la
   dad_capacity <- pmax(1L, rpois(length(dad_ids), lambda = mean_unions_dad))
   names(dad_capacity) <- as.character(dad_ids)
   
- 
+  
   
   ## Assign a father to each union (sampling from remaining capacity)
   assigned_dads <- character(nrow(unions))
@@ -82,8 +82,11 @@ pop_generation_from_founders <- function(pop_founder_haplo, mothers_fraction, la
   
   pop_from_founders <- c(pop_founder, children)
   
+  # Storing unions
+  unions_all <- unions
+  
   # Returning the pop object and Ids to distinguish different generations
-  return(list(pop_from_founders = pop_from_founders, parents_ids = parents_ids, children_ids = children_ids))
+  return(list(pop_from_founders = pop_from_founders, parents_ids = parents_ids, children_ids = children_ids, unions_all = unions_all))
   
 }
 
@@ -95,15 +98,24 @@ pop_generation_from_founders <- function(pop_founder_haplo, mothers_fraction, la
 ### THIS IS SUPPOSE TO GENERATE THE FINAL PEDIGREE THAT IS GOING TO BE USED
 ###
 
-pop_generation <- function(pop_founder_haplo, overlapping_fraction = 0.25, nGenerations_pop = 3, mothers_fraction = 0.75, lambdaKids = 1.6, maxPartners_mom = 3, p_new_partner = 0.25, mean_unions_dad = 1.3){
+pop_generation <- function(pop_founder_haplo, overlapping_fraction = 0, nGenerations_pop = 3, mothers_fraction = 0.75, lambdaKids = 1.6, maxPartners_mom = 3, p_new_partner = 0.25, mean_unions_dad = 1.3){
   #
   # THIS FUNCTION GENERATES FROM THE HAPLOTYPES A CERTAIN AMOUNT OF GENERATIONS 
   # AND STORES EACH GENERATION DATA
   #
   
+  # This stores the data of children_ids to allow pulling genotypes later
+  children_ids_list <- vector("list", length = nGenerations_pop)
+  
+  
+  
+  
   # This generates the first pop starting from founders
   # Uses the helper function created above
-  from_founders <- pop_generation_from_founders(pop_founder_haplo, mothers_fraction = mothers_fraction, lambdaKids = lambdaKids, maxPartners_mom = maxPartners_mom, p_new_partner = p_new_partner, mean_unions_dad = mean_unions_dad)
+  from_founders <- pop_generation_from_founders(pop_founder_haplo, mothers_fraction = mothers_fraction,
+                                                lambdaKids = lambdaKids, maxPartners_mom = maxPartners_mom,
+                                                p_new_partner = p_new_partner, mean_unions_dad = mean_unions_dad)
+  # from_founders is an object containing ids, unions and founders
   pop_from_founders <- from_founders[["pop_from_founders"]]
   
   generations_ids <- vector(mode = "list", length = nGenerations_pop + 1)
@@ -111,7 +123,12 @@ pop_generation <- function(pop_founder_haplo, overlapping_fraction = 0.25, nGene
   
   generations_ids[1] <- from_founders["parents_ids"]
   generations_ids[2] <- from_founders["children_ids"]
-
+  
+  # Store children ids
+  children_ids_list[1] <- from_founders["children_ids"]
+  
+  # Store unions list 
+  unions_all <- from_founders$unions_all
   
   # Store all the pop data
   pop_all <- pop_from_founders
@@ -211,8 +228,11 @@ pop_generation <- function(pop_founder_haplo, overlapping_fraction = 0.25, nGene
     
     pop_all <- c(pop_all, children)
     
+    # Storing children ids and unions
+    children_ids_list[[generation]] <- children@id
+    unions_all <- rbind(unions_all, unions)
   }
   
   
- return(pop_all)
+  return(list(pop = pop_all, unions_all = unions_all, chidlren_ids_list = children_ids_list))
 }

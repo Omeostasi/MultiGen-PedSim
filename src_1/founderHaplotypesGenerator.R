@@ -2,7 +2,7 @@ library(AlphaSimR)
 
 # HOLD THE FUNCTION TO INCREASE FOUNDER POP THROUGH CROSSING
 
-founderHaplotypesGenerator <- function(nInd, nChr = 22, segSites = 1000, nThreads = nChr, Ne = 10000, nGenerations = 10, method = "runMacs2", nFounders_final = 1*10^6){
+founderHaplotypesGenerator <- function(nInd, nChr = 22, segSites = 1000, nThreads = nChr, Ne = 10000, nGenerations = 10, method = "runMacs2", nFounders_final = 1*10^6, nSnpPerChr = 50){
   
   # method should be changed only for quick tests
   if (method == "runMacs2" || method == "run"){

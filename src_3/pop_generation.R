@@ -1,6 +1,13 @@
 library(AlphaSimR)
 
-source("src/helpers_juan.R")
+# source("src_3/helpers_juan.R")
+
+### ---------
+###  IN VERSION 3, THESE FUNCCTIONS USE VECTORS AS INPUTS FOR lambdaKids, p_new_partner, mean_unions_dad and mothers_fraction
+### ---------
+
+
+
 
 ###
 ### THIS IS FUNCTION IS NOT MEANT TO BE USED DIRECTLY
@@ -8,7 +15,7 @@ source("src/helpers_juan.R")
 ### GENERATES FIRST POP FROM FOUNDERS
 ###
 
-pop_generation_from_founders <- function(pop_founder_haplo, mothers_fraction, lambdaKids = 1.6, maxPartners_mom = 3, p_new_partner = 0.25, mean_unions_dad = 1.3){
+pop_generation_from_founders <- function(pop_founder_haplo, mothers_fraction, lambdaKids = 2.3, maxPartners_mom = 3, p_new_partner = 0.05, mean_unions_dad = 1.3){
   
   # Select male and females from founders
   pop_founder <- newPop(pop_founder_haplo)
@@ -98,7 +105,7 @@ pop_generation_from_founders <- function(pop_founder_haplo, mothers_fraction, la
 ### THIS IS SUPPOSE TO GENERATE THE FINAL PEDIGREE THAT IS GOING TO BE USED
 ###
 
-pop_generation <- function(pop_founder_haplo, overlapping_fraction = 0, nGenerations_pop = 3, mothers_fraction = 0.75, lambdaKids = 1.6, maxPartners_mom = 3, p_new_partner = 0.25, mean_unions_dad = 1.3){
+pop_generation <- function(pop_founder_haplo, overlapping_fraction = 0, nGenerations_pop = 3, mothers_fraction = c(0.75,0.75,0.75), lambdaKids = c(2.3, 2.0, 1.6), maxPartners_mom = 3, p_new_partner = c(0.05, 0.10, 0.25), mean_unions_dad = c(1.3,1.3,1.3)){
   #
   # THIS FUNCTION GENERATES FROM THE HAPLOTYPES A CERTAIN AMOUNT OF GENERATIONS 
   # AND STORES EACH GENERATION DATA
@@ -112,9 +119,9 @@ pop_generation <- function(pop_founder_haplo, overlapping_fraction = 0, nGenerat
   
   # This generates the first pop starting from founders
   # Uses the helper function created above
-  from_founders <- pop_generation_from_founders(pop_founder_haplo, mothers_fraction = mothers_fraction,
-                                                lambdaKids = lambdaKids, maxPartners_mom = maxPartners_mom,
-                                                p_new_partner = p_new_partner, mean_unions_dad = mean_unions_dad)
+  from_founders <- pop_generation_from_founders(pop_founder_haplo, mothers_fraction = mothers_fraction[1],
+                                                lambdaKids = lambdaKids[1], maxPartners_mom = maxPartners_mom,
+                                                p_new_partner = p_new_partner[1], mean_unions_dad = mean_unions_dad[1])
   # from_founders is an object containing ids, unions and founders
   pop_from_founders <- from_founders[["pop_from_founders"]]
   
@@ -159,7 +166,7 @@ pop_generation <- function(pop_founder_haplo, overlapping_fraction = 0, nGenerat
     mal_ids <- c(mal_ids_previous_fraction, mal_ids)
     
     # Select a fraction to be mothers and fathers
-    n_to_sample <- round(mothers_fraction * length(fem_ids))
+    n_to_sample <- round(mothers_fraction[generation] * length(fem_ids))
     mother_ids <- sample(fem_ids, n_to_sample)
     dad_ids <- mal_ids
     
@@ -173,10 +180,10 @@ pop_generation <- function(pop_founder_haplo, overlapping_fraction = 0, nGenerat
     ## -------------------------
     
     ## Kids per mother: mean(lambdaKids) among mothers with >=1 child
-    kids_per_mom <- rztpois_mean(length(mother_ids), mean_target = lambdaKids)
+    kids_per_mom <- rztpois_mean(length(mother_ids), mean_target = lambdaKids[generation])
     
     ## Number of partners per mother (1..maxPartners_mom), capped by number of kids
-    nPartners_mom <- 1 + rbinom(length(mother_ids), size = (maxPartners_mom - 1), prob = p_new_partner)
+    nPartners_mom <- 1 + rbinom(length(mother_ids), size = (maxPartners_mom - 1), prob = p_new_partner[generation])
     nPartners_mom <- pmin(nPartners_mom, kids_per_mom)
     nPartners_mom <- pmax(nPartners_mom, 1)
     
@@ -193,7 +200,7 @@ pop_generation <- function(pop_founder_haplo, overlapping_fraction = 0, nGenerat
     unions <- do.call(rbind, union_list)
     
     ## Allocate "union capacities" to fathers to avoid extreme super-fathers
-    dad_capacity <- pmax(1L, rpois(length(dad_ids), lambda = mean_unions_dad))
+    dad_capacity <- pmax(1L, rpois(length(dad_ids), lambda = mean_unions_dad[generation]))
     names(dad_capacity) <- as.character(dad_ids)
     
     
@@ -204,7 +211,7 @@ pop_generation <- function(pop_founder_haplo, overlapping_fraction = 0, nGenerat
       eligible <- names(dad_capacity)[dad_capacity > 0]
       if (length(eligible) == 0) {
         ## If depleted, refresh capacities (or increase mean_unions_dad)
-        dad_capacity[] <- pmax(1L, rpois(length(dad_ids), lambda = mean_unions_dad))
+        dad_capacity[] <- pmax(1L, rpois(length(dad_ids), lambda = mean_unions_dad[generation]))
         eligible <- names(dad_capacity)[dad_capacity > 0]
       }
       probs <- dad_capacity[eligible]

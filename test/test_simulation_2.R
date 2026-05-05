@@ -14,13 +14,13 @@ library(MASS)
 library(Matrix)
 
 # Adding wrapper function to generate founders
-source("src_1/founderHaplotypesGenerator.R")
+source("src_2/founderHaplotypesGenerator.R")
 
 # helpers: make_pd_corr, calib_alpha, alloc_kids_blocks
-source("src_1/helpers_juan.R")
+source("src_2/helpers_juan.R")
 
 # Function to generate pop pedigree
-source("src_1/pop_generation.R")
+source("src_2/pop_generation.R")
 
 set.seed(1)
 options(stringsAsFactors = FALSE)
@@ -30,22 +30,22 @@ options(stringsAsFactors = FALSE)
 ## -------------------------
 
 ## Genome simulation
-nFounder   <- 20*10^3  # initial number of founders for runMacs2 
-nChr       <- 10
-segSites   <- 1000    # segregating sites per chromosome
-nSnpPerChr <- 100     # SNPs per chromosome on chip (observed)
-nGenerations_founders <- 10 # the number of generations to generate the final founders
-Ne <- 50*10^3
-nFounders_final <- 1*10^6 # final number of founders used as SimParam
+nFounder   <- 50  # initial number of founders for runMacs2 
+nChr       <- 2
+segSites   <- 20    # segregating sites per chromosome
+nSnpPerChr <- 5     # SNPs per chromosome on chip (observed)
+nGenerations_founders <- 5 # the number of generations to generate the final founders
+Ne <- 20
+nFounders_final <- 100 # final number of founders used as SimParam
 
 
 ## Population / study design
 # nParents   <- 2000      # size of adult generation # this is not used
 # nMothers   <- 700 # this is not used
 mothers_fraction <- 0.75 # fraction of female pop that become mothers
-lambdaKids <- 1.6       # mean kids per mother among mothers with >=1 child
+lambdaKids <- c(2.3, 2.0, 1.6)      # mean kids per mother among mothers with >=1 child
 nGenerations_pop <- 3 # number generation that we have data for
-overlapping_fraction <- 0.00 #  % of the older pop could still have children during the current pop
+overlapping_fraction <- 0.05 # 5 % of the older pop could still have children during the current pop
 
 ## Prevalences
 prevCMC_mother <- 0.10
@@ -68,11 +68,11 @@ rho_CMC_m <- 0.20
 rho_d_m   <- 0.10
 
 ## Causal architecture
-nCausalPerChr <- 50      # causal segregating sites per chromosome
+nCausalPerChr <- 10      # causal segregating sites per chromosome
 
 ## Union / partnership structure (divorce/remarriage)
 maxPartners_mom <- 3     # max distinct fathers per mother
-p_new_partner   <- 0.25  # higher => more mothers with multiple partners
+p_new_partner   <- c(0.05, 0.10, 0.25)  # higher => more mothers with multiple partners
 mean_unions_dad <- 1.3   # higher => more paternal half-sibs + higher dad reuse
 
 ## Pregnancy CMC model
@@ -138,12 +138,12 @@ children <- pop[children_ids_all] # children pop subset (essentially missing jus
 cat("Pulling segSites, Genotypes and choosing causal variants from segSites \n")
 
 ## Observed chip (for export / downstream "array data")
-Gchip_mom <- pullSnpGeno(mothers,  snpChip = 1, simParam = SP)
-Gchip_kid <- pullSnpGeno(children, snpChip = 1, simParam = SP)
+Gchip_mom <- pullSnpGeno(mothers,  snpChip = 1, simParam = SP) # Adding "asRaw would reduce the space, but it wouldn't work for further operations in step 4
+Gchip_kid <- pullSnpGeno(children, snpChip = 1, simParam = SP) # Adding "asRaw would reduce the space, but it wouldn't work for further operations in step 4
 
 ## Segregating sites (for causal architecture)
-Gseg_mom <- pullSegSiteGeno(mothers,  simParam = SP)
-Gseg_kid <- pullSegSiteGeno(children, simParam = SP)
+Gseg_mom <- pullSegSiteGeno(mothers,  simParam = SP) # Adding "asRaw would reduce the space, but it wouldn't work for further operations in step 4
+Gseg_kid <- pullSegSiteGeno(children, simParam = SP) # Adding "asRaw would reduce the space, but it wouldn't work for further operations in step 4
 
 ## Choose causal variants from segregating sites
 nCausal <- nChr * nCausalPerChr
@@ -155,11 +155,13 @@ Gcausal_kid <- Gseg_kid[, causal_idx, drop = FALSE]
 m_causal <- ncol(Gcausal_mom)
 
 
-
 ## -------------------------
 ## 4) Correlated causal SNP effects (shared genetics / pleiotropy)
 ## -------------------------
 
+###
+### MODIFYING STEP 4 TO MAKE IT WORK WITH MODIFICATIONS
+###
 Sigma <- matrix(
   c(1,         rho_CMC_d, rho_CMC_m,
     rho_CMC_d, 1,         rho_d_m,
@@ -181,8 +183,11 @@ prs_d_kid   <- as.numeric(scale(Gcausal_kid %*% b_d))
 
 ## Map maternal PRS to each child by mother id
 
-
-prs_m_mom_byID  <- setNames(prs_m_mom, as.character(mothers_ids_all))
+###
+### THIS DOESN'T WORK, REQUIRE SOME MODIFICATION
+###
+prs_m_mom_byID  <- setNames(prs_m_mom, as.character(mothers_ids_all)) # this works
+# prs_m_for_child <- prs_m_mom_byID[as.character(child_moms)] # problem here, we need something similar to "child_moms"
 
 ## Expand union rows into per-child parent vectors
 child_moms <- rep(unions_all$mother_id, times = unions_all$n_kids)
@@ -190,13 +195,22 @@ child_dads <- rep(unions_all$father_id, times = unions_all$n_kids)
 
 prs_m_for_child <- prs_m_mom_byID[as.character(child_moms)]
 
+### SOLVED
+
+
 ## -------------------------
 ## 5) Maternal CMC (mother-level trait; liability threshold)
 ## -------------------------
 
+
+### Checking this step
+
 L_CMC_mom <- sqrt(0.40) * prs_cmc_mom + sqrt(0.60) * rnorm(length(mothers_ids_all))
 thr_CMC <- as.numeric(quantile(L_CMC_mom, probs = 1 - prevCMC_mother))
 CMC_mom <- as.integer(L_CMC_mom > thr_CMC)
+
+### Perfect
+
 
 ## -------------------------
 ## 6) Pregnancy CMC (per child)
@@ -204,6 +218,10 @@ CMC_mom <- as.integer(L_CMC_mom > thr_CMC)
 ##      - calibrated per mother (each mother counts equally)
 ##      - depends on continuous liability AND binary CMC status
 ## -------------------------
+
+
+
+### Checking this step
 
 linpred_mom <- kappa * L_CMC_mom + delta_CMC * CMC_mom
 alpha <- calib_alpha(prevPregCMC, linpred_mom)
@@ -213,12 +231,11 @@ p_for_child <- p_mom[match(as.character(child_moms), as.character(mothers_ids_al
 preg_CMC <- rbinom(n = length(p_for_child), size = 1, prob = p_for_child)
 
 
+
 ## -------------------------
 ## 7) Child ASD (liability threshold)
 ##    Fix: stabilize liability scaling on child sample under correlated components.
 ## -------------------------
-
-
 
 
 ## Shared maternal environment (same for siblings of a mother)
@@ -248,13 +265,29 @@ ASD_kid <- as.integer(L_ASD_kid > thr_ASD)
 
 
 
+
+
+
+
+
+
+
+
 ## -------------------------
 ## 8) Export: pedigree + phenotypes + PLINK genotypes for a subset
 ## -------------------------
 
 
+###
+### CHECKING THIS PART
+###
 
 ped <- getPed(pop)  # columns: id, mother, father
+##
+## counting generations
+##
+library(pedigree)
+pedigree::countGen(ped)
 
 pheno_mom <- data.frame(
   id = mothers@id,
@@ -300,5 +333,3 @@ cat("Children:", nInd(children), "\n")
 cat("CMC moms prevalence:", mean(CMC_mom), "\n")
 cat("Preg CMC prevalence (per child):", mean(preg_CMC), "\n")
 cat("ASD prevalence:", mean(ASD_kid), "\n")
-
-
