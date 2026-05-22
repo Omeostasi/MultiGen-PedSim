@@ -1,0 +1,54 @@
+# parameter file for renumf90
+DATAFILE 
+pheno_blupf90.txt 
+TRAITS
+2 
+FIELDS_PASSED TO OUTPUT
+1 
+WEIGHT(S)
+ 
+RESIDUAL_VARIANCE
+1.00 
+EFFECT
+3 cross alpha #sex
+EFFECT
+1 cross alpha # id 
+RANDOM
+animal  # referring to the last effect. Additive genetic variable  
+FILE
+pedigree_blupf90.txt  # pedigree file linked to random var effect id 
+FILE_POS
+1 2 3 0 0 # ped can have 5 cols, alternative mother for embryo transfer col 4, col 5 something else
+OPTION cat 2
+OPTION method VCE # variance component estimation, to add otherwise just breeding values 
+OPTION num_threads_pcg 6
+OPTION nthreads 6
+OPTION use_yams # modified method to calculate matrix, complex model
+OPTION fact_once memory # avoid iterative calculation coleski factor, saves in the memory, Faster time. RAM
+OPTION approx_log_like # doesnt compute exact log likelihood
+OPTION EM-REML 10  # restricted max likelihood
+OPTION se_covar_function h2 G_3_3_1_1/(G_3_3_1_1+R_1_1)  # calculate heritability 
+#SNP_FILE
+# 
+#PED_DEPTH
+# 
+#UPG_TYPE
+# 
+#INBREEDING
+# 
+#FIXED_REGRESSION
+# 
+#RANDOM_REGRESSION
+# 
+#RR_POSITION
+# 
+#(CO)VARIANCES
+# 
+#(CO)VARIANCES_PE
+# 
+#(CO)VARIANCES_MPE
+# 
+#OPTION alpha_size 20
+#OPTION max_string_readline 800
+#OPTION max_field_readline 100
+
