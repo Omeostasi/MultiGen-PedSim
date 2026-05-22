@@ -8,3 +8,6 @@
 *.rds
 *.Rmd
 *.png
+steps
+old
+results
