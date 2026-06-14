@@ -1,68 +1,5 @@
-## ------------------------------------------------------------
-## Pedigree + genotypes + maternal CMC + pregnancy CMC + child ASD
-## with:
-##  - correct mean kids/mom (zero-truncated Poisson)
-##  - union-based partner structure (divorce/remarriage; full- & half-sibs)
-##  - robust PD guard for correlated SNP-effect matrix (Sigma)
-##  - pregnancy CMC calibrated per mother + depends on binary CMC_mom
-##  - causal variants (seg sites) separate from observed SNP chip (exported)
-##  - ASD liability built from standardized predictors on child scale + residual
-## ------------------------------------------------------------
-
-
-## --------------------------------------------------------------------------------------------------------------------------------------------------------------------
-##  THIS SCRIPT CONTAINS THE FINAL VERSION OF THE SIMULATION, AS DESCRIBED IN THE MASTER'S THESIS.
-##  ALLOWS FOR DIFFERENT VALUES AT DIFFERENT GENERATIONS FOR  AND p_new_partner.
-##  A NUMERIC VECTOR IS GOING TO BE ENCODED UNDER THESE VARIABLES:lambdakids, p_new_partner,mothers_fraction, AND mean_unions_dad.
-##  THESE VECTORS MUST HAVE A VALUE FOR EACH POPULATION GENERATED, SPECIFICALLY IT MUST HAVE nGenerations_pop VALUES.
-##  THE DEFAULT VALUES ARE ESTIMATED FROM STATISTICS DENMARK.
-##  IT HAS BEEN BUILT THINKING ABOUT 5 GENERATIONS (SILENT, BOOMER, GENX, MILLENNIAL, GEN Z), DESCRIBED AS:
-##  Greatest (before 1927)
-##   n_children: 3.0 (2.9 M, 3.09 F)
-##   n_partners: 1.25 M, 1.05 F
-##   Percentage_wo_children: 0.46% M, 0.75% F
-##
-##  Silent (1928-1945)
-##   n_children: 2.53 (2.51 M, 2.55 F)
-##   n_partners: 1.17 M, 1.12 F
-##   Percentage_wo_children: 0.34% M, 0.24% F
-## 
-##  Boomers (1946-1964)
-##    n_children: 2.11 (2.1 M, 2.11 F)
-##    n_partners: 1.15 M, 1.13 F
-##    Percentage_wo_children: 2.59% M, 1.42% F
-## 
-##  GenX (1965-1980)
-##    n_children: 1.64 (1.54 M, 1.75 F)
-##    n_partners: 1.13 M, 1.12 F 
-##    Percentage_wo_children: 27.05% M, 17.22% F
-## 
-##  Millennials (1981-1996)*
-##   n_children: 1.34 (1.16 M, 1.44 F) <- *Taking only Millennials born between 1981 and 1986 (youngest being 38 on 2024, year of the data)
-##   n_partners: 1.09 M, 1.10 F <- *Taking only Millennials born between 1981 and 1986 (youngest being 38 on 2024, year of the data)
-##   Percentage_wo_children: 42.09% M, 28.87% F <- *Taking only Millennials born between 1981 and 1986 (youngest being 38 on 2024, year of the data)
-##
-##  THE GENOTYPED POPULATION IS A SAMPLE OF THE GENERATED POPULATION MADE TO RESEMBLE THE iPSYCH COHORT.
-##  IT DIVIDES IN CHUNKS THE PLINK FILE (BINDING IT BACK TO ONE AT THE END) TO OVERCOME
-##  THE SIZE LIMIT OF THE MATRIX ALLOWED IN THE writePLINK() FUNCTION, AND, FINALLY, IT REMOVES 80% OF THE SILENT GENERATION AND THE FOUNDERS
-##  FROM THE FINAL PEDIGREE (OR FOUNDERS AND 80% OF FIRST GENERATED POPULATION).
-##   
-##  IF THE POPULATION HAS BEEN ALREADY GENERATED, THE SCRIPT RECOMPUTES ONLY THE PHENOTYPES AND GENETIC COMPONENTS.
-##  STORES THE NEWLY PHENOTYPES AND RE-GENOTYPES THE POPULATION BASED ON THOSE.
-##   ADDITIONAL PARAMETERS CAN BE GIVEN TO THE Rscript OF THE SIMULATION IN THIS ORDER:
-##   1)  run_id        -> added to the end of generated outputs and used as simulation seed
-##   2)  prevCMC_mother -> lifetime prevalence of cardiometabolic condition in mothers
-##   3)  prevPregCMC   -> prevalence of pregnancy-related CMC episodes, calibrated per mother
-##   4)  prevASD_child -> population prevalence of ASD in children (both sexes combined)
-##   5)  ASD_male_ratio -> male-to-female ratio for ASD diagnosis
-##   6)  betaPreg      -> effect of pregnancy CMC exposure on child ASD liability (liability scale)
-##   7)  var_d         -> proportion of ASD liability variance from child's direct additive genetic effects
-##   8)  var_m         -> proportion of ASD liability variance from maternal additive genetic effects (genetic nurture)
-##   9)  var_c         -> proportion of ASD liability variance from shared maternal environment
-##   10) rho_CMC_d     -> correlation between SNP effects on CMC and child direct ASD liability
-##   11) rho_CMC_m     -> correlation between SNP effects on CMC and maternal indirect ASD liability
-##   12) rho_d_m       -> correlation between child direct and maternal indirect ASD genetic components
-##   IF NOT GIVEN, THEY WILL ASSIGNED BY DEFAULT
+##--------------------------------------------------------------------------------------------------------------------------------------------------------------
+## QUICKTEST CAN BE RUN LOCALLY
 ## -------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -130,7 +67,7 @@ set.seed(run_id)                                              # the seed changes
 ## Output directory  —  one sub-folder per run
 ## ============================================================
 OUT_DIR_POP   <- file.path("results")
-OUT_DIR_PHENO <- file.path("results", sprintf("run%02d", run_id))
+OUT_DIR_PHENO <- file.path("results", sprintf("run%d", run_id))
 dir.create(OUT_DIR_POP, showWarnings = FALSE, recursive = TRUE)
 dir.create(OUT_DIR_PHENO, showWarnings = FALSE, recursive = TRUE)
 cat(sprintf("[INFO] Output directory for POP: %s/\n\n", normalizePath(OUT_DIR_POP)))
@@ -176,19 +113,19 @@ mean_unions_dad  <- c(1.25, 1.17, 1.15, 1.13, 1.09)   # higher => more paternal 
 ## Prevalences
 prevCMC_mother <- as.numeric(if (length(args) >= 2) args[2] else 0.10)  # lifetime prevalence of cardiometabolic condition in mothers
 prevPregCMC    <- as.numeric(if (length(args) >= 3) args[3] else 0.16)  # prevalence of pregnancy-related CMC episodes, calibrated per mother
-prevASD_child  <- as.numeric(if (length(args) >= 4) args[4] else 0.10)  # population prevalence of ASD in children (both sexes combined)
+prevASC_child  <- as.numeric(if (length(args) >= 4) args[4] else 0.10)  # population prevalence of ASC in children (both sexes combined)
 
-# Prevalences ASD by gender
-ASD_male_ratio <- as.numeric(if (length(args) >= 5) args[5] else 5/1)  # male-to-female ratio for ASD diagnosis. Default: 4 males every 1 female
-prevASD_multiplier <- 1/ASD_male_ratio*2  
-prevASD_male   <- prevASD_child*prevASD_multiplier*(ASD_male_ratio-1)
-prevASD_female <- prevASD_child*prevASD_multiplier
+# Prevalences ASC by gender
+ASC_male_ratio <- as.numeric(if (length(args) >= 5) args[5] else 5/1)  # male-to-female ratio for ASC diagnosis. Default: 4 males every 1 female
+prevASC_multiplier <- 1/ASC_male_ratio*2  
+prevASC_male   <- prevASC_child*prevASC_multiplier*(ASC_male_ratio-1)
+prevASC_female <- prevASC_child*prevASC_multiplier
 
 
-## Pregnancy effect on ASD liability
-betaPreg <- as.numeric(if (length(args) >= 6) args[6] else 0.35)  # effect of pregnancy CMC exposure on child ASD liability (liability scale)
+## Pregnancy effect on ASC liability
+betaPreg <- as.numeric(if (length(args) >= 6) args[6] else 0.35)  # effect of pregnancy CMC exposure on child ASC liability (liability scale)
 
-## ASD liability variance targets (excluding pregnancy term)
+## ASC liability variance targets (excluding pregnancy term)
 var_d <- as.numeric(if (length(args) >= 7) args[7] else 0.20)  # child's direct additive genetic effects
 var_m <- as.numeric(if (length(args) >= 8) args[8] else 0.10)  # maternal additive genetic effects on child (genetic nurture)
 var_c <- as.numeric(if (length(args) >= 9) args[9] else 0.10)  # shared maternal environment (full-siblings share this)
@@ -196,9 +133,9 @@ var_e <- 1 - (var_d + var_m + var_c)                           # residual varian
 stopifnot(var_e > 0)
 
 ## Correlations among causal SNP effects across components
-rho_CMC_d <- as.numeric(if (length(args) >= 10) args[10] else 0.30)  # correlation between SNP effects on CMC and child direct ASD liability
-rho_CMC_m <- as.numeric(if (length(args) >= 11) args[11] else 0.20)  # correlation between SNP effects on CMC and maternal indirect ASD liability
-rho_d_m   <- as.numeric(if (length(args) >= 12) args[12] else 0.10)  # correlation between child direct and maternal indirect ASD genetic components
+rho_CMC_d <- as.numeric(if (length(args) >= 10) args[10] else 0.30)  # correlation between SNP effects on CMC and child direct ASC liability
+rho_CMC_m <- as.numeric(if (length(args) >= 11) args[11] else 0.20)  # correlation between SNP effects on CMC and maternal indirect ASC liability
+rho_d_m   <- as.numeric(if (length(args) >= 12) args[12] else 0.10)  # correlation between child direct and maternal indirect ASC genetic components
 
 ## Causal architecture
 nCausalPerChr <- 10   # causal seg sites per chromosome
@@ -209,8 +146,8 @@ kappa     <- 1.0
 delta_CMC <- 1.0
 
 ## Genotyped subset targets (iPSYCH-like design)
-n_geno_ASD    <- 20    # target number of ASD cases to genotype
-n_geno_random <- 250   # target number of random non-ASD individuals to genotype
+n_geno_ASC    <- 20    # target number of ASC cases to genotype
+n_geno_random <- 250   # target number of random non-ASC individuals to genotype
 ## ---------------------
 ## Parameter validation
 ## ---------------------
@@ -228,8 +165,8 @@ if (
 
 cat("Reporting assigned parameters to the log file: \n")
 cat(sprintf("[INFO] Run ID: %d | seed: %d\n", run_id, run_id))
-cat(sprintf("[INFO] prevCMC_mother=%.3f | prevPregCMC=%.3f | prevASD_child=%.3f\n",
-            prevCMC_mother, prevPregCMC, prevASD_child))
+cat(sprintf("[INFO] prevCMC_mother=%.3f | prevPregCMC=%.3f | prevASC_child=%.3f\n",
+            prevCMC_mother, prevPregCMC, prevASC_child))
 cat(sprintf("[INFO] var_d=%.2f | var_m=%.2f | var_c=%.2f | var_e=%.2f\n",
             var_d, var_m, var_c, var_e))
 cat(sprintf("[INFO] rho_CMC_d=%.2f | rho_CMC_m=%.2f | rho_d_m=%.2f\n",
@@ -462,7 +399,7 @@ preg_CMC    <- rbinom(n = length(p_for_child), size = 1, prob = p_for_child)
 
 
 ## -------------------------
-## 7) Child ASD liability
+## 7) Child ASC liability
 ## -------------------------
 c_mom      <- rnorm(length(mothers_ids_all), mean = 0, sd = 1)
 c_mom_byID <- setNames(c_mom, as.character(mothers_ids_all))
@@ -477,7 +414,7 @@ nonpreg_part <- sqrt(var_d) * gd_z +
   sqrt(var_c) * c_z
 
 sd_e      <- sqrt(max(1 - var(nonpreg_part, na.rm = TRUE), 1e-8))
-L_ASD_kid <- betaPreg * preg_CMC +
+L_ASC_kid <- betaPreg * preg_CMC +
   nonpreg_part +
   sd_e * rnorm(length(nonpreg_part))
 
@@ -488,16 +425,16 @@ is_male   <- child_sex == "M"
 is_female <- child_sex == "F"
 
 # Each sex gets its own threshold calibrated to its target prevalence
-thr_ASD_male   <- quantile(L_ASD_kid[is_male],   probs = 1 - prevASD_male,   na.rm = TRUE)
-thr_ASD_female <- quantile(L_ASD_kid[is_female],  probs = 1 - prevASD_female, na.rm = TRUE)
+thr_ASC_male   <- quantile(L_ASC_kid[is_male],   probs = 1 - prevASC_male,   na.rm = TRUE)
+thr_ASC_female <- quantile(L_ASC_kid[is_female],  probs = 1 - prevASC_female, na.rm = TRUE)
 
-cat(sprintf("  [INFO] ASD threshold (male)   : %.4f  [target prev = %.3f]\n", thr_ASD_male,   prevASD_male))
-cat(sprintf("  [INFO] ASD threshold (female) : %.4f  [target prev = %.3f]\n", thr_ASD_female, prevASD_female))
+cat(sprintf("  [INFO] ASC threshold (male)   : %.4f  [target prev = %.3f]\n", thr_ASC_male,   prevASC_male))
+cat(sprintf("  [INFO] ASC threshold (female) : %.4f  [target prev = %.3f]\n", thr_ASC_female, prevASC_female))
 
 
-ASD_kid <- integer(length(L_ASD_kid))
-ASD_kid[is_male]   <- as.integer(L_ASD_kid[is_male]   > thr_ASD_male)
-ASD_kid[is_female] <- as.integer(L_ASD_kid[is_female] > thr_ASD_female)
+ASC_kid <- integer(length(L_ASC_kid))
+ASC_kid[is_male]   <- as.integer(L_ASC_kid[is_male]   > thr_ASC_male)
+ASC_kid[is_female] <- as.integer(L_ASC_kid[is_female] > thr_ASC_female)
 
 
 
@@ -525,8 +462,8 @@ pheno_kid <- data.frame(
   mother_id = child_moms,
   father_id = child_dads,
   preg_CMC  = preg_CMC,
-  ASD_liab  = L_ASD_kid,
-  ASD       = ASD_kid,
+  ASC_liab  = L_ASC_kid,
+  ASC       = ASC_kid,
   sex       = as.integer(1)
 )
 
@@ -582,7 +519,7 @@ cat("--------------------------------------------------\n")
 pop_geno <- genotype_subset(pop = pop, pheno_kid = pheno_kid, generations_ids = pop_all$children_ids_list,
                             ped = ped,
                             nGenerations_pop = nGenerations_pop,
-                            n_geno_random = n_geno_random, n_geno_ASD = n_geno_ASD)
+                            n_geno_random = n_geno_random, n_geno_ASC = n_geno_ASC)
 
 ## write PLINK in chunks to stay within cat() size limits
 chunk_size  <- 18000   # individuals per chunk
@@ -651,8 +588,8 @@ save_run_summary(
   minSnpFreq     = minSnpFreq,
   prevCMC_mother = prevCMC_mother,
   prevPregCMC    = prevPregCMC,
-  prevASD_child  = prevASD_child,
-  ASD_male_ratio = ASD_male_ratio,
+  prevASC_child  = prevASC_child,
+  ASC_male_ratio = ASC_male_ratio,
   betaPreg       = betaPreg,
   var_d          = var_d,
   var_m          = var_m,
@@ -666,7 +603,7 @@ save_run_summary(
   delta_CMC      = delta_CMC,
   pheno_mom      = pheno_mom,
   pheno_kid      = pheno_kid,
-  ASD_kid        = ASD_kid,
+  ASC_kid        = ASC_kid,
   is_male        = is_male,
   is_female      = is_female
 )
@@ -686,10 +623,10 @@ cat(sprintf("  Mothers - after removal    : %d\n",   length(pheno_mom$id)))
 cat(sprintf("  Children - after removal   : %d\n",   length(pheno_kid$id)))
 cat(sprintf("  CMC prevalence (mothers) - after removal  : %.4f\n", mean(pheno_mom$CMC)))
 cat(sprintf("  Preg CMC prevalence (kids) - after removal : %.4f\n", mean(pheno_kid$preg_CMC)))
-cat(sprintf("  ASD prevalence (overall) - after removal: %.4f\n", mean(pheno_kid$ASD)))
-cat(sprintf("  ASD prevalence (overall)   : %.4f\n", mean(ASD_kid)))
-cat(sprintf("  ASD prevalence — males     : %.4f\n", mean(ASD_kid[is_male])))
-cat(sprintf("  ASD prevalence — females   : %.4f\n", mean(ASD_kid[is_female])))
+cat(sprintf("  ASC prevalence (overall) - after removal: %.4f\n", mean(pheno_kid$ASC)))
+cat(sprintf("  ASC prevalence (overall)   : %.4f\n", mean(ASC_kid)))
+cat(sprintf("  ASC prevalence — males     : %.4f\n", mean(ASC_kid[is_male])))
+cat(sprintf("  ASC prevalence — females   : %.4f\n", mean(ASC_kid[is_female])))
 cat("------------------------------------------\n")
 cat("[TIMING SUMMARY]\n")
 if (exists("t_founder_elapsed")) {

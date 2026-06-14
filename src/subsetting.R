@@ -384,50 +384,52 @@ check_related_pairs <- function(ped, ids, cutoff = 0.0625) {
 
 ###
 ### Selects a genotyped subset from the two most recent generations of a population.
-### Prioritises ASD cases (up to n_geno_ASD) and supplements with a random sample
-### of non-ASD individuals (up to n_geno_random), returning a Pop object of the
+### Prioritises ASC cases (up to n_geno_ASC) and supplements with a random sample
+### of non-ASC individuals (up to n_geno_random), returning a Pop object of the
 ### combined selection. Warns if fewer individuals are available than requested.
 ### Inds are chosen avoiding close relatives using the previous 2 functions.
 ###
-genotype_subset <- function(pop, pheno_kid, generations_ids, ped, nGenerations_pop = 5, n_geno_random = 125000, n_geno_ASD = 25000){
+genotype_subset <- function(pop, pheno_kid, generations_ids, ped, nGenerations_pop = 5, n_geno_random = 125000, n_geno_ASC = 25000){
   
   lastGeneration <- generations_ids[[nGenerations_pop]]
   secondLastGeneration <- generations_ids[[nGenerations_pop - 1]]
   subset_genotyped <- c(secondLastGeneration, lastGeneration)
   pheno_genotyped <- pheno_kid[pheno_kid$id %in% subset_genotyped,]
   
-  # select subset of ASD cases from children
-  asd_child_ids <- as.integer(pheno_genotyped[pheno_genotyped$ASD == 1,]$id)
+  # select subset of ASC cases from children
+  ASC_child_ids <- as.integer(pheno_genotyped[pheno_genotyped$ASC == 1,]$id)
   
   
   # select subset not close-related.
-   selected_asd_ids <- sample_unrelated(ped = ped, target_n = n_geno_ASD, subset_ids = asd_child_ids)
-   n_asd_avail   <- length(selected_asd_ids$id)
+   selected_ASC_ids <- sample_unrelated(ped = ped, target_n = n_geno_ASC, subset_ids = ASC_child_ids)
+   n_ASC_avail   <- length(selected_ASC_ids$id)
   
   
   # select subset random individuals from the full population,
-  #           excluding the already-selected ASD cases
-  remaining_ids    <- as.integer(setdiff(pheno_genotyped$id, selected_asd_ids))
+  #           excluding the already-selected ASC cases
+  remaining_ids    <- as.integer(setdiff(pheno_genotyped$id, selected_ASC_ids))
   n_rand_avail     <- length(remaining_ids)
   selected_rand_ids <- sample_unrelated(ped = ped, target_n = n_geno_random, subset_ids = remaining_ids)
   
   # combine and test for related
-  selected_ids <- c(selected_asd_ids$id, selected_rand_ids$id)
+  selected_ids <- c(selected_ASC_ids$id, selected_rand_ids$id)
   related_ids <- check_related_pairs(ped = ped, ids = selected_ids, cutoff = 0.125)
   
-  
+
   # remove related ids that do not have autism
   to_remove <- c()
   if(nrow(related_ids) > 0){
     for (i in 1:nrow(related_ids)){
       # check if id1 has autism
-      if (related_ids[i,]$id1 %in% asd_child_ids) {
+      if (related_ids[i,]$id1 %in% ASC_child_ids) {
         to_remove <- c(to_remove, related_ids[i,]$id2)
       } else { # remove id1 if doesn't have autism
         to_remove <- c(to_remove, related_ids[i,]$id1)
       }
     } 
-    selected_ids[-to_remove]}
+  # remove from selected id
+    selected_ids <- setdiff(selected_ids, to_remove)
+  }
   
   
   # create pop object that is going to be genotyped

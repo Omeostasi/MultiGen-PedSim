@@ -63,13 +63,13 @@ save_run_summary <- function(
     ## Genome
     nChr, segSites, nSnpPerChr, Ne, minSnpFreq,
     ## Phenotype / genetic components
-    prevCMC_mother, prevPregCMC, prevASD_child,
-    ASD_male_ratio, betaPreg,
+    prevCMC_mother, prevPregCMC, prevASC_child,
+    ASC_male_ratio, betaPreg,
     var_d, var_m, var_c, var_e,
     rho_CMC_d, rho_CMC_m, rho_d_m,
     nCausalPerChr, kappa, delta_CMC,
     ## Observed outcomes
-    pheno_mom, pheno_kid, ASD_kid, is_male, is_female
+    pheno_mom, pheno_kid, ASC_kid, is_male, is_female
 ) {
   
   summary_df <- data.frame(
@@ -87,8 +87,8 @@ save_run_summary <- function(
     ## Prevalence parameters
     prevCMC_mother        = prevCMC_mother,
     prevPregCMC           = prevPregCMC,
-    prevASD_child         = prevASD_child,
-    ASD_male_ratio        = ASD_male_ratio,
+    prevASC_child         = prevASC_child,
+    ASC_male_ratio        = ASC_male_ratio,
     
     ## Pregnancy effect
     betaPreg              = betaPreg,
@@ -116,10 +116,10 @@ save_run_summary <- function(
     
     ## Observed outcomes — children
     n_children            = nrow(pheno_kid),
-    n_ASD                 = sum(pheno_kid$ASD),
-    obs_prev_ASD_overall  = mean(ASD_kid),
-    obs_prev_ASD_male     = mean(ASD_kid[is_male]),
-    obs_prev_ASD_female   = mean(ASD_kid[is_female])
+    n_ASC                 = sum(pheno_kid$ASC),
+    obs_prev_ASC_overall  = mean(ASC_kid),
+    obs_prev_ASC_male     = mean(ASC_kid[is_male]),
+    obs_prev_ASC_female   = mean(ASC_kid[is_female])
   )
   
   out_file <- file.path(OUT_DIR, sprintf("sim_run_summary_%s.csv", file_description))
