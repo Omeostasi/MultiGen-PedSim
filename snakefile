@@ -1,34 +1,24 @@
 # PARAMETERS
 PARAMS = {
     1: {
-        "prevCMC_mother": 0.10,
-        "prevPregCMC": 0.16,
-        "prevASC_child": 0.02,
-        "ASC_male_ratio": 5,
-        "betaPreg": 0.35,
-        "var_d": 0.20,
-        "var_m": 0.10,
-        "var_c": 0.10,
-        "var_cmc":0.40,
-        "rho_CMC_d": 0.30,
-        "rho_CMC_m": 0.20,
-        "rho_d_m": 0.10,
+        "prevCMC_mother": 0.10, # Prevalence of the mother trait 
+        "prevPregCMC": 0.16, # Prevalence of mother trait during pregnancy
+        "prevASC_child": 0.02, # Prevalence of childrent trait
+        "ASC_male_ratio": 5, # Ratio of the prevalence between sexes
+        "betaPreg": 0.35, # Effect of mother trait during pregnancy on child trait
+        "var_d": 0.20, # Direct genetic variance of the child trait
+        "var_m": 0.10, # Maternal effect variance of the child trait
+        "var_c": 0.10, # Maternal permanent environment variance of the child trait
+        "var_cmc":0.40, # Direct genetic variance of the mother trait
+        "rho_CMC_d": 0.30, # Correlation between mother trait and child trait
+        "rho_CMC_m": 0.20, # Correlation between mother trait and maternal effect
+        "rho_d_m": 0.10,  # Correlation between child trait and maternal effect
     },
-    # Add more runs here if needed, create another dictionary with the same keys and different values,
-    # and add the run_id to the expand function in the all rule.
+    # Possibility to add more runs in parallel,
+    # and use different run_id to the expand function in the all rule.
     2: {
         "prevCMC_mother": 0.10,
-        "prevPregCMC": 0.16,
-        "prevASC_child": 0.02,
-        "ASC_male_ratio": 5,
-        "betaPreg": 0.35,
-        "var_d": 0.35,
-        "var_m": 0.10,
-        "var_c": 0.10,
-        "var_cmc":0.10,
-        "rho_CMC_d": 0.30,
-        "rho_CMC_m": 0.20,
-        "rho_d_m": 0.10,
+        ...
     }
 }
 
