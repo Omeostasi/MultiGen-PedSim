@@ -6,9 +6,10 @@ PARAMS = {
         "prevASC_child": 0.02,
         "ASC_male_ratio": 5,
         "betaPreg": 0.35,
-        "var_d": 0.0.20,
+        "var_d": 0.20,
         "var_m": 0.10,
         "var_c": 0.10,
+        "var_cmc":0.40,
         "rho_CMC_d": 0.30,
         "rho_CMC_m": 0.20,
         "rho_d_m": 0.10,
@@ -24,6 +25,7 @@ PARAMS = {
         "var_d": 0.35,
         "var_m": 0.10,
         "var_c": 0.10,
+        "var_cmc":0.10,
         "rho_CMC_d": 0.30,
         "rho_CMC_m": 0.20,
         "rho_d_m": 0.10,
@@ -64,6 +66,7 @@ rule simulation_run:
         var_d=lambda wc: PARAMS[int(wc.n)]["var_d"],
         var_m=lambda wc: PARAMS[int(wc.n)]["var_m"],
         var_c=lambda wc: PARAMS[int(wc.n)]["var_c"],
+        var_cmc=lambda wc: PARAMS[int(wc.n)]["var_cmc"],
         rho_CMC_d=lambda wc: PARAMS[int(wc.n)]["rho_CMC_d"],
         rho_CMC_m=lambda wc: PARAMS[int(wc.n)]["rho_CMC_m"],
         rho_d_m=lambda wc: PARAMS[int(wc.n)]["rho_d_m"]
@@ -82,6 +85,7 @@ rule simulation_run:
             {params.var_d} \
             {params.var_m} \
             {params.var_c} \
+            {params.var_cmc} \
             {params.rho_CMC_d} \
             {params.rho_CMC_m} \
             {params.rho_d_m} \

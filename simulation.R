@@ -46,9 +46,10 @@
 ##   7)  var_d         -> proportion of ASC liability variance from child's direct additive genetic effects
 ##   8)  var_m         -> proportion of ASC liability variance from maternal additive genetic effects (genetic nurture)
 ##   9)  var_c         -> proportion of ASC liability variance from shared maternal environment
-##   10) rho_CMC_d     -> correlation between SNP effects on CMC and child direct ASC liability
-##   11) rho_CMC_m     -> correlation between SNP effects on CMC and maternal indirect ASC liability
-##   12) rho_d_m       -> correlation between child direct and maternal indirect ASC genetic components
+##   10) var_cmc       -> proportion of CMC liability variance from mother's direct additive genetic effect
+##   11) rho_CMC_d     -> correlation between SNP effects on CMC and child direct ASC liability
+##   12) rho_CMC_m     -> correlation between SNP effects on CMC and maternal indirect ASC liability
+##   13) rho_d_m       -> correlation between child direct and maternal indirect ASC genetic components
 ##   IF NOT GIVEN, THEY WILL ASSIGNED BY DEFAULT
 ##
 ##   DIFFERENT PHENOTYPES CAN BE TESTED FOR THE SAME POPULATION CHANGING THE ADDITIONAL PARAMETRS.
@@ -188,10 +189,13 @@ var_c <- as.numeric(if (length(args) >= 9) args[9] else 0.10)  # shared maternal
 var_e <- 1 - (var_d + var_m + var_c)                           # residual variance; must be positive
 stopifnot(var_e > 0)
 
+# CMC liability variance
+var_cmc <- as.numeric(if (length(args) >= 10) args[10] else 0.40) # direct genetic effect for maternal trait
+
 ## Correlations among causal SNP effects across components
-rho_CMC_d <- as.numeric(if (length(args) >= 10) args[10] else 0.30)  # correlation between SNP effects on CMC and child direct ASC liability
-rho_CMC_m <- as.numeric(if (length(args) >= 11) args[11] else 0.20)  # correlation between SNP effects on CMC and maternal indirect ASC liability
-rho_d_m   <- as.numeric(if (length(args) >= 12) args[12] else 0.10)  # correlation between child direct and maternal indirect ASC genetic components
+rho_CMC_d <- as.numeric(if (length(args) >= 11) args[11] else 0.30)  # correlation between SNP effects on CMC and child direct ASC liability
+rho_CMC_m <- as.numeric(if (length(args) >= 12) args[12] else 0.20)  # correlation between SNP effects on CMC and maternal indirect ASC liability
+rho_d_m   <- as.numeric(if (length(args) >= 13) args[13] else 0.10)  # correlation between child direct and maternal indirect ASC genetic components
 
 ## Causal architecture
 nCausalPerChr <- 50   # causal seg sites per chromosome
@@ -440,7 +444,7 @@ prs_m_for_child <- prs_m_mom_byID[as.character(child_moms)]
 ## -------------------------
 ## 5) Maternal CMC
 ## -------------------------
-L_CMC_mom <- sqrt(0.40) * prs_cmc_mom + sqrt(0.60) * rnorm(length(mothers_ids_all))
+L_CMC_mom <- sqrt(var_cmc) * prs_cmc_mom + sqrt(1-var_cmc) * rnorm(length(mothers_ids_all))
 thr_CMC   <- as.numeric(quantile(L_CMC_mom, probs = 1 - prevCMC_mother))
 CMC_mom   <- as.integer(L_CMC_mom > thr_CMC)
 
